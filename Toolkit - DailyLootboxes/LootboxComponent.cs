@@ -14,14 +14,17 @@ namespace Toolkit___DailyLootboxes
     {
         public LootboxComponent(Game game)
         {
-
+            if (ViewersWhoHaveRecievedLootboxesToday == null)
+            {
+                ViewersWhoHaveRecievedLootboxesToday = new List<string>();
+            }
         }
 
         public override void GameComponentTick()
         {
             if (Find.TickManager.TicksGame % 20000 == 0)
             {
-                if (today != DateTime.Now)
+                if (today.DayOfYear != DateTime.Now.DayOfYear)
                 {
                     ViewersWhoHaveRecievedLootboxesToday = new List<string>();
                     today = DateTime.Now;
@@ -35,6 +38,7 @@ namespace Toolkit___DailyLootboxes
 
             if (IsViewerOwedLootboxesToday(viewer.username.ToLower()))
             {
+                Log.Warning("Awarding boxes");
                 AwardViewerDailyLootboxes(viewer.username.ToLower());
             }
 
@@ -58,7 +62,7 @@ namespace Toolkit___DailyLootboxes
 
                 string instructions = amount > 1 ? " Use !openlootbox" + (ToolkitSettings.UseSeparateChatRoom ? " in the separate chat room." : "") : "";
 
-                Toolkit.client.SendMessage($"@{viewer.username} you currently have {amount} lootbox{pluralBoxes}.{instructions}");
+                Toolkit.client.SendMessage($"@{viewer.username} you currently have {amount} lootbox{pluralBoxes}.{instructions}", true);
             }
 
             if (msg.Message.StartsWith("!givelootbox") && (Viewer.IsModerator(viewer.username) || viewer.username.ToLower() == ToolkitSettings.Channel.ToLower()) )
@@ -125,6 +129,11 @@ namespace Toolkit___DailyLootboxes
 
         private bool IsViewerOwedLootboxesToday(string username)
         {
+            if (ViewersWhoHaveRecievedLootboxesToday == null)
+            {
+                ViewersWhoHaveRecievedLootboxesToday = new List<string>();
+            }
+
             if (ViewersWhoHaveRecievedLootboxesToday.Contains(username))
             {
                 return false;
@@ -140,10 +149,20 @@ namespace Toolkit___DailyLootboxes
 
         private bool IsViewerOwedLootboxesLookup(string username)
         {
+            if (ViewersLastSeenDate == null)
+            {
+                ViewersLastSeenDate = new Dictionary<string, long>();
+            }
+
+            if (ViewersLootboxes == null)
+            {
+                ViewersLootboxes = new Dictionary<string, int>();
+            }
+
             if (IsViewerInLastSeenList(username))
             {
                 DateTime lastSeen = ViewerLastSeenAt(username);
-                if (lastSeen == DateTime.Today)
+                if (lastSeen.DayOfYear == DateTime.Today.DayOfYear)
                 {
                     return false;
                 }
@@ -156,11 +175,11 @@ namespace Toolkit___DailyLootboxes
         {
             if (ViewersLastSeenDate.ContainsKey(username))
             {
-                ViewersLastSeenDate[username] = DateTime.Now.ToShortDateString();
+                ViewersLastSeenDate[username] = DateTime.Now.ToFileTime();
             }
             else
             {
-                ViewersLastSeenDate.Add(username, DateTime.Now.ToShortDateString());
+                ViewersLastSeenDate.Add(username, DateTime.Now.ToFileTime());
             }
         }
 
@@ -171,7 +190,7 @@ namespace Toolkit___DailyLootboxes
 
         private DateTime ViewerLastSeenAt(string username)
         {
-            return DateTime.ParseExact(ViewersLastSeenDate[username], "dd/MM/yyyy", CultureInfo.InvariantCulture); ;
+            return DateTime.FromFileTime(ViewersLastSeenDate[username]); ;
         }
 
         public bool DoesViewerHaveLootboxes(string username)
@@ -199,6 +218,7 @@ namespace Toolkit___DailyLootboxes
 
         public override void ExposeData()
         {
+            Scribe_Collections.Look(ref ViewersWhoHaveRecievedLootboxesToday, "ViewersWhoHaveRecievedLootboxesToday", LookMode.Value);
             Scribe_Collections.Look(ref ViewersLastSeenDate, "ViewersLastSeenDate", LookMode.Value, LookMode.Value);
             Scribe_Collections.Look(ref ViewersLootboxes, "ViewersLootboxes", LookMode.Value, LookMode.Value);
         }
@@ -207,7 +227,7 @@ namespace Toolkit___DailyLootboxes
 
         public List<string> ViewersWhoHaveRecievedLootboxesToday = new List<string>();
 
-        public Dictionary<string, string> ViewersLastSeenDate = new Dictionary<string, string>();
+        public Dictionary<string, long> ViewersLastSeenDate = new Dictionary<string, long>();
 
         public Dictionary<string, int> ViewersLootboxes = new Dictionary<string, int>();
     }
